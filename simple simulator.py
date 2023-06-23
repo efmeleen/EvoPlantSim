@@ -1,11 +1,20 @@
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+from collections import deque
+ 
+stack = deque() # Stack used to determine the order in which resources are allocated
 
 rows = 30
 cols = 30
 dirt_level = 10
 steps = 100
+
+sunlight_increment = 1.0
+water_increment = 1.0
+
+cell_water_consumption = 0.25
+cell_sunlight_consumtion = 0.25
 
 AIR = np.int32(0)
 PLANT = np.int32(2) # PLANT = AIR + 2 (to keep delta simple)
@@ -18,10 +27,10 @@ rng = np.random.default_rng(0)
 
 world = np.ndarray(shape=[rows, cols], dtype=np.int32) # Stores what material is at each cell in the world
 
-sunlight = np.ndarray(shape=[rows, cols], dtype=np.float32) # Stores the amount of stored "sunlight" in each cell
-sunlight.fill(np.int32(0))
-water = np.ndarray(shape=[rows, cols], dtype=np.float32) #Stores the amount of stored "water" in each cell
-sunlight.fill(np.int32(0))
+# sunlight = np.ndarray(shape=[rows, cols], dtype=np.float32) # Stores the amount of stored "sunlight" in each cell
+# sunlight.fill(np.int32(0))
+# water = np.ndarray(shape=[rows, cols], dtype=np.float32) #Stores the amount of stored "water" in each cell
+# sunlight.fill(np.int32(0))
 
 delta = np.ndarray(shape=[rows, cols], dtype=np.int32) # For each cell, stores if there will be a PLANT or ROOT there on the next step
 delta.fill(np.int32(0))
@@ -49,8 +58,44 @@ im1 = axarr[0,0].imshow(
 )
 plt.show(block=False)
 
+stored_water = 0.0
+stored_sunlight = 0.0
+
 # Enter the loop
 for step in range(steps):
+    # Resource Collection
+    # Sunlight Collection: Starting at the top of each column, iterate downwards until a plant or dirt is found. Add 1 sunlight if PLANT
+    # TODO: change this to just check if the row contains any PLANT at all (using numpy array slicing like for neighbors)
+    for col in range(cols):
+        for row in range((rows-1), dirt_level, -1):
+            if world[row, col] == PLANT:
+                stored_sunlight = stored_sunlight + sunlight_increment
+                break
+
+    # Water Collection
+    # For each dirt cell, water_increment to stored_water if there is an adjacent ROOT
+    for col in range (cols):
+        for row in range(dirt_level, -1, -1):
+            if world[row, col] == DIRT and ((world[row-1:row+2, col-1:col+2] == ROOT).sum() > 0):
+                stored_water = stored_water + water_increment
+
+    # Resource Consumption
+    # For each cell starting at the bottom of the stack, each cell consumes resources
+    #   Once there aren't enough resources to feed the remaining cells, remove them from the world and pop them from the stack
+    for i in range(len(stack)):
+        if (stored_sunlight >= cell_sunlight_consumtion) and (stored_water >= cell_water_consumption):
+            stored_sunlight -= cell_sunlight_consumtion
+            stored_water -= cell_water_consumption
+        else:
+            #print('PRUNING PRUNING PRUNING')
+            for j in range(len(stack)-1, i, -1):
+                if (stack[j][1][0] <= dirt_level):
+                    world[stack[j][1]] = DIRT
+                else:
+                    world[stack[j][1]] = AIR
+                stack.pop()
+            break
+
     # Growth
     for row in range(2,rows-2):
         for col in range(2, cols-2):
@@ -69,9 +114,10 @@ for step in range(steps):
                 if ((world[exp_row-1:exp_row+2, exp_col-1:exp_col+2] > 0).sum() > 1) or ((delta[exp_row-1:exp_row+2, exp_col-1:exp_col+2] == 2).sum() > 0):
                     continue #not allowed to grow a node right next to an existing node
                 
-                if (world[exp_row, exp_col] == AIR):
+                if (world[exp_row, exp_col] == AIR): #TODO: CHECK IF PLANT has enough resources to grow
                     #print('placing new plant node')
                     delta[exp_row, exp_col] = 2
+                    stack.append((PLANT, (exp_row, exp_col)))
                 
             elif world[row, col] == ROOT:
                 # It grows to an adjacent spot that is under the dirt line and not adjacent to any other ROOT (except parent)
@@ -80,7 +126,7 @@ for step in range(steps):
                 exp_col = col + rng.integers(low= -1, high=2)
                 
                 # Check for out of bounds (of the world, and of the dirt)
-                if (not exp_col >= 0) or (not exp_col < cols):
+                if (not exp_col >= 0) or (not exp_col < cols) or (not exp_row <= dirt_level):
                     continue #skip growing a root node from this node for this cycle
                 
                 # Check for ROOT in 3x3 neighborhood (minus parent cell, inclding current expansion target)
@@ -88,9 +134,10 @@ for step in range(steps):
                 if ((world[exp_row-1:exp_row+2, exp_col-1:exp_col+2] == ROOT).sum() > 1) or ((delta[exp_row-1:exp_row+2, exp_col-1:exp_col+2] == 2).sum() > 0):
                     continue #not allowed to grow a node right next to an existing node
                     
-                if (world[exp_row, exp_col] == DIRT):
+                if (world[exp_row, exp_col] == DIRT): #TODO: CHECK IF PLANT has enough resources to grow
                     #print('placing new plant node')
                     delta[exp_row, exp_col] = 2
+                    stack.append((ROOT, (exp_row, exp_col)))
     
     # Apply the Delta that was produced in this step
     world = world + delta
@@ -99,5 +146,7 @@ for step in range(steps):
     # Update the plot to reflect the new state of the world after the Delta was applied
     im1.set_array(np.flipud(world))
     plt.pause(0.002)
+
+#TODO: Plot stored sunlight and stored water for each step after simulation has finished
 
 input('Press enter when done')
