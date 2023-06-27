@@ -38,7 +38,7 @@ Next, the main loop of the program begins:
 <details>
   <summary>Click to view an example of a plant, and graphs of water, sunlight, and total cells over time.</summary>
 
-  ![alt text](resources\README\Figure_1.png "Figure 1")
+  ![alt text](resources/README/Figure_1.png "Figure 1")
 </details>
 
 ### Notes, Challenges, and Future Plans
