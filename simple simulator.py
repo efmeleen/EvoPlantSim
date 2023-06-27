@@ -5,19 +5,19 @@ from collections import deque
  
 stack = deque() # Stack used to determine the order in which resources are allocated
 
-rows = 30
-cols = 30
-dirt_level = 10
+rows = 60
+cols = 60
+dirt_level = 20
 steps = 200
 
-sunlight_increment = 1.0
+sunlight_increment = 2.0
 water_increment = 1.0
 
 cell_water_consumption = 0.25
 cell_sunlight_consumtion = 0.25
 
 cell_water_storage_capacity = 0.5
-cell_sunlight_storage_capacity = 0.5
+cell_sunlight_storage_capacity = 1
 
 stored_water = 0.0
 stored_water_history = np.ndarray(shape=steps)
